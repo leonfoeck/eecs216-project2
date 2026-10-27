@@ -1,0 +1,54 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Optical Flow Dataset 1" type="PythonConfigurationType" factoryName="Python">
+    <module name="project_2" />
+    <option name="ENV_FILES" value="" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
+    <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/eecs116/python.exe" />
+    <option name="SDK_NAME" value="eecs116" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/student" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="RUN_TOOL" value="" />
+    <option name="RUN_AS_SCRIPT" value="" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/student/main.py" />
+    <option name="PARAMETERS" value="--part 2 --dataset 1 --ransac on" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="false" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+  <configuration default="false" name="Optical Flow Dataset 1" type="PythonConfigurationType" factoryName="Python">
+    <module name="project_2" />
+    <option name="ENV_FILES" value="" />
+    <option name="INTERPRETER_OPTIONS" value="" />
+    <option name="PARENT_ENVS" value="true" />
+    <envs>
+      <env name="PYTHONUNBUFFERED" value="1" />
+    </envs>
+    <option name="SDK_HOME" value="$USER_HOME$/anaconda3/envs/eecs116/python.exe" />
+    <option name="SDK_NAME" value="eecs116" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/student" />
+    <option name="IS_MODULE_SDK" value="false" />
+    <option name="ADD_CONTENT_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <option name="RUN_TOOL" value="" />
+    <option name="RUN_AS_SCRIPT" value="" />
+    <option name="SCRIPT_NAME" value="$PROJECT_DIR$/student/main.py" />
+    <option name="PARAMETERS" value="--part 2 --dataset 1 --ransac on" />
+    <option name="SHOW_COMMAND_LINE" value="false" />
+    <option name="EMULATE_TERMINAL" value="false" />
+    <option name="MODULE_MODE" value="false" />
+    <option name="REDIRECT_INPUT" value="false" />
+    <option name="INPUT_FILE" value="" />
+    <method v="2" />
+  </configuration>
+</component>
