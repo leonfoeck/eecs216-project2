@@ -13,9 +13,9 @@ def get_corners(ids: np.ndarray) -> np.ndarray:
     top right, top left (p1, p2, p3, p4); the mat is the world z=0 plane.
     """
     corners = np.zeros((len(ids), 4, 3))
-    for idx, id in enumerate(ids):
-        i = id % 12
-        j = id // 12
+    for idx, tag_id in enumerate(ids):
+        i = tag_id % 12
+        j = tag_id // 12
         if j > 5:
             width = 0.152 * (2 * j - 2) + 2 * 0.178
         elif j > 2:
@@ -59,7 +59,9 @@ def estimate_pose(frame: Frame) -> Pose | None:
 
     A = np.array(A)
 
-    _, S, Vh = np.linalg.svd(A)
+    # Keep the full SVD: a single tag gives an 8x9 system, so the right null
+    # space is only the last row of a 9x9 Vh, not of a thin factorisation.
+    Vh = np.linalg.svd(A)[2]
 
     h = Vh[-1, :]
     H = h.reshape(3, 3)
@@ -70,14 +72,14 @@ def estimate_pose(frame: Frame) -> Pose | None:
     gamma = 2 / (np.linalg.norm(b1) + np.linalg.norm(b2))
     r1_pos = gamma * b1
     r2_pos = gamma * b2
-    r3_pos = np.linalg.cross(r1_pos, r2_pos)
+    r3_pos = np.cross(r1_pos, r2_pos)
     t_CM_pos = gamma * b3
     R_pos = np.array([r1_pos, r2_pos, r3_pos]).T  # R_CM with positive gamma
     U, S, Vt = np.linalg.svd(R_pos)
     R_pos = U @ np.diag([1, 1, np.linalg.det(U @ Vt)]) @ Vt
     r1_neg = -gamma * b1
     r2_neg = -gamma * b2
-    r3_neg = np.linalg.cross(r1_neg, r2_neg)
+    r3_neg = np.cross(r1_neg, r2_neg)
     t_CM_neg = -gamma * b3
     R_neg = np.array([r1_neg, r2_neg, r3_neg]).T  # R_CM with negative gamma
     U, S, Vt = np.linalg.svd(R_neg)

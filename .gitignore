@@ -1,0 +1,19 @@
+# Build artifact: rebuild with the command in the assignment. 97 MB, over
+# GitHub's 100 MB file limit, and it only repackages files already tracked here.
+submission.zip
+
+# LaTeX intermediates
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store

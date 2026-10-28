@@ -6,6 +6,20 @@ import math
 
 from support import BODY_TO_CAMERA, CAMERA_MATRIX, Frame, Pose
 
+# Seeded so a given dataset always produces the same plots.
+_RNG = np.random.default_rng(0)
+
+# RANSAC tuning. The inlier test is a budget on KLT tracking error in pixels
+# (see estimate_velocity); the inlier fraction and hit probability set how many
+# trials are needed to draw an all-inlier sample.
+PIXEL_TOLERANCE = 0.3
+INLIER_FRACTION = 0.5
+HIT_PROBABILITY = 0.99
+
+# A minimal sample is three points; give up on a trial after this many redraws
+# rather than looping forever when every triple is rank deficient.
+_MAX_REDRAWS = 20
+
 
 def velocity_ransac(points: np.ndarray, flow: np.ndarray, depth: np.ndarray, *,
                     ransac: bool, threshold: float, iterations: int) -> np.ndarray:
@@ -18,49 +32,44 @@ def velocity_ransac(points: np.ndarray, flow: np.ndarray, depth: np.ndarray, *,
     each point by its 2D flow residual norm (< threshold, in 1/s), keep the
     best consensus, and refit using all its inliers.
     """
-    most_inliers = 0
-    best_points = []
-    best_flows = []
-    best_depths = []
-    if ransac:
-        for _ in range(iterations):
-            while True:
-                i, j, k = np.random.choice(len(points), 3, replace=False)
+    if len(points) < 3:
+        return None
+    if not ransac:
+        return calculate_velocity(points, flow, depth)
 
-                chosen_points = np.array([points[i], points[j], points[k]])
-                chosen_depths = np.array([depth[i], depth[j], depth[k]])
+    # Built once and reused: scoring every trial against it costs one matrix
+    # product instead of rebuilding a 2x6 block per point per iteration.
+    AB = build_AB(points, depth)
+    measured = flow.reshape(-1)
 
-                AB = build_AB(chosen_points, chosen_depths)
+    best_inliers = None
+    for _ in range(iterations):
+        sample = _sample_well_posed(points, depth)
+        if sample is None:
+            continue
+        velocity = calculate_velocity(points[sample], flow[sample], depth[sample])
+        residual = np.linalg.norm((AB @ velocity - measured).reshape(-1, 2), axis=1)
+        inliers = residual < threshold
+        if inliers.sum() >= 3 and (best_inliers is None
+                                   or inliers.sum() > best_inliers.sum()):
+            best_inliers = inliers
 
-                if np.linalg.matrix_rank(AB) == 6:
-                    break
+    if best_inliers is None:
+        return None
+    return calculate_velocity(points[best_inliers], flow[best_inliers], depth[best_inliers])
 
-            chosen_flows = np.array([flow[i], flow[j], flow[k]])
-            velocity = calculate_velocity(chosen_points, chosen_flows, chosen_depths)
-            inliers = 0
-            inlier_points = []
-            inlier_flow = []
-            inlier_depth = []
-            for point, flow_i, depth_i in zip(points, flow, depth):
-                if np.linalg.norm(build_AB_i(point, depth_i) @ velocity - flow_i) <= threshold:
-                    inliers += 1
-                    inlier_points.append(point)
-                    inlier_flow.append(flow_i)
-                    inlier_depth.append(depth_i)
-            if inliers > most_inliers and inliers >= 3:
-                most_inliers = inliers
-                best_points = inlier_points
-                best_flows = inlier_flow
-                best_depths = inlier_depth
-        if most_inliers < 3:
-            return None
-    else:
-        if len(points) < 3:
-            return None
-        best_points = points
-        best_flows = flow
-        best_depths = depth
-    return calculate_velocity(np.array(best_points), np.array(best_flows), np.array(best_depths))
+
+def _sample_well_posed(points: np.ndarray, depth: np.ndarray) -> np.ndarray | None:
+    """Draw three distinct points whose 6x6 system has full rank, else None.
+
+    Three collinear or coincident features leave some of the six degrees of
+    freedom unconstrained, so such a sample cannot generate a hypothesis.
+    """
+    for _ in range(_MAX_REDRAWS):
+        sample = _RNG.choice(len(points), 3, replace=False)
+        if np.linalg.matrix_rank(build_AB(points[sample], depth[sample])) == 6:
+            return sample
+    return None
 
 
 def calculate_velocity(points: np.ndarray, flow: np.ndarray, depth: np.ndarray) -> np.ndarray:
@@ -107,6 +116,8 @@ def estimate_velocity(previous: Frame, current: Frame, pose: Pose, *,
     at midpoint timestamps; use the previous pose for frame transformations.
     """
     dt = current.time - previous.time
+    if dt <= 0:
+        return None
     prev_image = previous.image
     curr_image = current.image
 
@@ -159,19 +170,26 @@ def estimate_velocity(previous: Frame, current: Frame, pose: Pose, *,
     if len(depth) < 3:
         return None
 
-    epsilon = 0.8
-    p_hit = 0.99
-    M = 3
+    # The residual is a flow residual, so its units are 1/s and its scale goes
+    # as 1/dt. Image timestamps in these datasets jitter between roughly 3 and
+    # 52 ms, so a constant threshold in 1/s would be several times stricter on
+    # a short interval than on a long one. Fixing the tolerance in pixels of
+    # KLT tracking error and converting keeps the test consistent across
+    # intervals; 0.3 px is about the sub-pixel accuracy of the tracker.
+    focal = 0.5 * (CAMERA_MATRIX[0, 0] + CAMERA_MATRIX[1, 1])
+    threshold = PIXEL_TOLERANCE / (focal * dt)
 
-    iterations = math.ceil(np.log(1 - p_hit) / np.log(1 - epsilon ** M))
+    M = 3           # minimal sample size: three points give six equations
+    iterations = math.ceil(np.log(1 - HIT_PROBABILITY)
+                           / np.log(1 - INLIER_FRACTION ** M))
 
     velocity = velocity_ransac(normalized_points, normalized_optical_flow, depth,
-                               ransac=ransac, threshold=0.01, iterations=iterations)
+                               ransac=ransac, threshold=threshold, iterations=iterations)
     if velocity is None:
         return None
     W_v_C_C = velocity[0:3]
     W_omega_B_C = velocity[3:6]
     W_omega_B_B = C_R_B.T @ W_omega_B_C
-    W_v_B_W = W_R_C @ (W_v_C_C + np.linalg.cross(W_omega_B_C, s_CB_C))
+    W_v_B_W = W_R_C @ (W_v_C_C + np.cross(W_omega_B_C, s_CB_C))
 
     return np.array([W_v_B_W, W_omega_B_B]).flatten()
